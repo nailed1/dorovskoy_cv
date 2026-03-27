@@ -32,7 +32,18 @@ for i in range(1, max_label + 1):
 
 print(centroids)
 def distance_to_last(i):
-    return np.linalg.norm(last - centroids[i])
+    target_point = centroids[i]
+
+    dy = last[0] - target_point[0]
+    dx = last[1] - target_point[1]
+    dx_squared = dx ** 2
+    dy_squared = dy ** 2
+
+    sum_of_squares = dy_squared + dx_squared
+
+    distance = sum_of_squares ** 0.5
+
+    return distance
 
 visited = [0]
 while len(visited) < len(centroids):
