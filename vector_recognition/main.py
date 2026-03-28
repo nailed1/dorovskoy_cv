@@ -26,8 +26,23 @@ def extractor(region):
     horizontal_lines = (np.sum(region.image, 1) == region.image.shape[0]).sum()
     eccentricity = region.eccentricity
     aspect = region.image.shape[0] / region.image.shape[1]
-    return np.array([region.area/region.image.size, cy, cx, holes, vertical_lines, horizontal_lines, eccentricity,
-                     aspect])
+    area = region.area
+    compactness = 4 * np.pi * area / (region.perimeter ** 2 + 1e-6)
+    solidity = area / (region.area_convex + 1e-6)
+    extent = area / (region.area_bbox + 1e-6)
+    return np.array([
+        perimeter,
+        cy,
+        cx,
+        holes,
+        vertical_lines,
+        horizontal_lines,
+        eccentricity,
+        aspect,
+        compactness,
+        solidity,
+        extent
+    ])
 
 def classificator(region, templates):
     features = extractor(region)
