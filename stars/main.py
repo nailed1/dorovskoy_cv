@@ -35,7 +35,7 @@ for label_id in range(1, num_features + 1):
     ys, xs = np.where(labeled == label_id)
     cy, cx = int(np.round(np.mean(ys))), int(np.round(np.mean(xs)))
     
-    height, width = labeled Check 4-connectivity neighbors (for crosses)
+    height, width = labeled.shape
     n4_values = []
     for dy, dx in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
         ny, nx = cy + dy, cx + dx
