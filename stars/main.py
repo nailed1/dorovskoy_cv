@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.measure import label
 
-image = np.load("/Users/nailed1/Documents/GitHub/dorovskoy_cv/stars/stars.npy")
+image = np.load("./stars.npy")
 
 def area(labeled, label):
     return (labeled == label).sum()
