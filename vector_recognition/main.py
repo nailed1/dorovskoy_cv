@@ -55,7 +55,7 @@ def classificator(region, templates):
             min_d = d
     return result
 
-template = imread("vector_recognition/alphabet-small.png")[:, :, :-1]
+template = imread("./alphabet-small.png")[:, :, :-1]
 template = template.sum(2)
 binary = template != 765
 
@@ -71,7 +71,7 @@ for region, symbol in zip(props, ["8", "0", "A", "B", "1", "W", "X", "*", "/", "
     templates[symbol] = extractor(region)
 
 
-image = imread("vector_recognition/alphabet.png")[:, :, :-1]
+image = imread("./alphabet.png")[:, :, :-1]
 binary_alphabet = image.mean(2) > 0
 labeled_alphabet = label(binary_alphabet)
 print(np.max(labeled_alphabet))
