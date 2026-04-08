@@ -14,35 +14,36 @@ def count_holes(region):
     labeled = label(new_image)
     return np.max(labeled) - 1
 
+def count_lines(region):
+    shape = region.image.shape
+    image = region.image
+    vlines = (np.sum(image,0)/shape[0]==1).sum()
+    hlines = (np.sum(image,1)/shape[1]==1).sum()
+    return vlines,hlines
 
+def horizontal_symmetry(region):
+    img = region.image.astype(int)
+    flipped = np.fliplr(img)
+    diff = np.abs(img - flipped).sum() /region.image.size
+    return diff
 
 def extractor(region):
-    cy ,cx = region.centroid_local
-    cy /= region.image.shape[0]
-    cx /= region.image.shape[1]
-    perimeter = region.perimeter / region.image.size
+    cy,cx=region.centroid_local
+    cy/=region.image.shape[0]
+    cx/=region.image.shape[1]
+    perimetr = region.perimeter / region.image.size
     holes = count_holes(region)
-    vertical_lines = (np.sum(region.image, 0) == region.image.shape[1]).sum()
-    horizontal_lines = (np.sum(region.image, 1) == region.image.shape[0]).sum()
+    v,h = count_lines(region)
+    v /= region.image.shape[1]
+    h /= region.image.shape[0]
     eccentricity = region.eccentricity
-    aspect = region.image.shape[0] / region.image.shape[1]
-    area = region.area
-    compactness = 4 * np.pi * area / (region.perimeter ** 2 + 1e-6)
-    solidity = area / (region.area_convex + 1e-6)
-    extent = area / (region.area_bbox + 1e-6)
-    return np.array([
-        perimeter,
-        cy,
-        cx,
-        holes,
-        vertical_lines,
-        horizontal_lines,
-        eccentricity,
-        aspect,
-        compactness,
-        solidity,
-        extent
-    ])
+    aspect = region.image.shape[0] /region.image.shape[1]
+    
+    solidity = region.solidity
+    symmetry = horizontal_symmetry(region)
+
+    return np.array([region.area/region.image.size,cy,cx,perimetr,
+            holes,v,h,eccentricity,aspect,solidity,symmetry])
 
 def classificator(region, templates):
     features = extractor(region)
