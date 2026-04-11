@@ -8,13 +8,18 @@ def classificator(region):
     holes = count_holes(region)
     if holes == 2: #8, B
         vertical_lines = (np.sum(region.image, 0) == region.image.shape[0]).sum()
-        vertical_lines = vertical_lines / region.image.shape[1]
-        if vertical_lines > 0.2:
+        
+        if vertical_lines > 4:
             return "B"
         else:
             return "8"
     elif holes == 1: #A, 0
-        if region.eccentricity > 0.58:
+        labeled = label(np.logical_not(region.image))
+        bays = 0
+        for r in regionprops(labeled):
+            if r.area > 3:
+                bays +=1
+        if region.eccentricity > 0.58 and bays == 5:
             return "0"
         else:
             return "A"
@@ -40,7 +45,10 @@ def classificator(region):
             return "X"
         elif bays == 5:
             return "W"
-    return "?"
+    if vertical_lines > 1:
+        return "A"
+    else:
+        return "?"
 
 
 def count_holes(region):

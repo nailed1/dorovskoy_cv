@@ -63,9 +63,6 @@ binary = template != 765
 labeled = label(binary)
 props = regionprops(labeled)
 
-# print(type(props[0]))
-# print(props[0].area, props[0].centroid, props[0].label)
-
 templates = {}
 
 for region, symbol in zip(props, ["8", "0", "A", "B", "1", "W", "X", "*", "/", "-"]):
