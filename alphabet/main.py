@@ -22,7 +22,14 @@ def classificator(region):
         if region.eccentricity > 0.58 and bays == 5:
             return "0"
         else:
-            return "A"
+            vertical_lines = (np.sum(region.image, 0) == region.image.shape[0]).sum()
+            relative_y = region.centroid_local[0] / region.image.shape[0]
+            if vertical_lines > 1 and relative_y < 0.45:
+                return "P"
+            elif vertical_lines > 1 and relative_y >= 0.45:
+                return "D"
+            else:
+                return "A"
     else: #1, W, X, *, -, /
         if region.image.sum() / region.image.size == 1.0:
             return "-"
@@ -61,7 +68,7 @@ def count_holes(region):
 
 save_path = Path(__file__).parent
 
-image = imread("vector_recognition/alphabet.png")[:, :, :-1]
+image = imread("alphabet/symbols.png")[:, :, :-1]
 binary_alphabet = image.mean(2) > 0
 labeled_alphabet = label(binary_alphabet)
 print(np.max(labeled_alphabet))
