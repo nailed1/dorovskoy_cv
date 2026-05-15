@@ -1,137 +1,193 @@
+from __future__ import annotations
+
+import argparse
+import sys
+import time
+from dataclasses import dataclass
+
+import cv2
 import mss
 import numpy as np
 import pyautogui
-import time
-import cv2
 
-class DinoBot:
-    def __init__(self):
-        self.sct = mss.mss()
-        self.monitor = None
-        self.last_jump = 0
-        
-    def find_game(self):
-        """Автоматически находит окно с игрой"""
-        print("Ищем игру на экране...")
-        
-        # Пробуем найти по характерному цвету фона игры (#f7f7f7)
-        monitor = self.sct.monitors[1]
-        screen = np.array(self.sct.grab(monitor))[:, :, :3]
-        
-        hsv = cv2.cvtColor(screen, cv2.COLOR_BGR2HSV)
-        
-        # Маска для белого/светло-серого фона игры
-        lower = np.array([0, 0, 200])
-        upper = np.array([180, 20, 255])
-        mask = cv2.inRange(hsv, lower, upper)
-        
-        # Ищем самый большой светлый прямоугольник
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        if contours:
-            largest = max(contours, key=cv2.contourArea)
-            x, y, w, h = cv2.boundingRect(largest)
-            
-            # Проверяем что это похоже на игру (достаточно широкое)
-            if w > 400 and h > 150:
-                self.monitor = {
-                    "top": y,
-                    "left": x,
-                    "width": w,
-                    "height": h
-                }
-                print(f"Игра найдена: x={x}, y={y}, w={w}, h={h}")
-                return True
-        
-        # Если не нашли автоматически — используем весь экран
-        self.monitor = {
-            "top": 0,
-            "left": 0,
-            "width": monitor["width"],
-            "height": monitor["height"]
-        }
-        print("Игра не найдена, использую весь экран")
-        return False
-    
-    def capture(self):
-        return np.array(self.sct.grab(self.monitor))[:, :, :3]
-    
-    def find_dino_ground(self, img):
-        """Находит землю под динозавром"""
-        h, w = img.shape[:2]
-        
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Ищем тёмную линию земли в нижней части
-        bottom = gray[h//2:, :]
-        
-        # Находим строку с самой тёмной полосой
-        row_means = np.mean(bottom, axis=1)
-        ground_y = np.argmin(row_means) + h//2
-        
-        return ground_y
-    
-    def process(self, img):
-        h, w = img.shape[:2]
-        
-        # Находим землю
-        ground_y = self.find_dino_ground(img)
-        
-        # Зона перед динозавром (левая треть) на уровне земли
-        y1 = max(0, ground_y - 50)
-        y2 = min(h, ground_y + 20)
-        x1 = w // 5
-        x2 = w // 2
-        
-        roi = img[y1:y2, x1:x2]
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        
-        # Адаптивная бинаризация
-        thresh = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY_INV, 11, 2
-        )
-        
-        # Опасная зона - ближайшая к динозавру часть
-        danger = thresh[:, :thresh.shape[1]//2]
-        pct = cv2.countNonZero(danger) / danger.size * 100
-        
-        return pct
-    
-    def run(self):
-        self.find_game()
-        
-        print("Запуск через 2 секунды...")
-        time.sleep(2)
-        pyautogui.press('space')
-        
-        score = 0
-        
+pyautogui.PAUSE = 0
+pyautogui.FAILSAFE = True
+
+
+@dataclass
+class Box:
+    left: int
+    top: int
+    width: int
+    height: int
+
+    def to_mss(self) -> dict:
+        return {"left": self.left, "top": self.top,
+                "width": self.width, "height": self.height}
+
+    def expand_right(self, extra: int) -> "Box":
+        return Box(self.left, self.top, self.width + extra, self.height)
+
+
+@dataclass
+class Calibration:
+    ground: Box
+    monitor: dict
+
+
+def grab_full_screen(sct: mss.mss) -> tuple[np.ndarray, dict]:
+    mon = sct.monitors[1]
+    raw = np.array(sct.grab(mon))
+    img = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
+    return img, mon
+
+
+def _select_box(display: np.ndarray, scale: float, title: str,
+                allow_skip: bool = False) -> Box | None:
+    state = {"start": None, "end": None, "dragging": False, "done": False}
+
+    def on_mouse(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN:
+            state["start"] = (x, y)
+            state["end"] = (x, y)
+            state["dragging"] = True
+            state["done"] = False
+        elif event == cv2.EVENT_MOUSEMOVE and state["dragging"]:
+            state["end"] = (x, y)
+        elif event == cv2.EVENT_LBUTTONUP and state["dragging"]:
+            state["end"] = (x, y)
+            state["dragging"] = False
+            state["done"] = True
+
+    cv2.namedWindow(title)
+    cv2.setMouseCallback(title, on_mouse)
+
+    while True:
+        view = display.copy()
+        if state["start"] is not None and state["end"] is not None:
+            x0, y0 = state["start"]
+            x1, y1 = state["end"]
+            color = (0, 200, 0) if state["done"] else (0, 165, 255)
+            cv2.rectangle(view, (x0, y0), (x1, y1), color, 2)
+
+        cv2.imshow(title, view)
+        key = cv2.waitKey(20) & 0xFF
+        if key == 27:
+            cv2.destroyWindow(title)
+            sys.exit(1)
+        if allow_skip and key in (ord("s"), ord("S")):
+            cv2.destroyWindow(title)
+            return None
+        if key in (ord("r"), ord("R")):
+            state.update({"start": None, "end": None,
+                          "dragging": False, "done": False})
+        if key in (13, 10) and state["done"]:
+            break
+
+    cv2.destroyWindow(title)
+    x0, y0 = state["start"]
+    x1, y1 = state["end"]
+    lx, rx = sorted([x0, x1])
+    ty, by = sorted([y0, y1])
+    return Box(
+        left=int(lx / scale),
+        top=int(ty / scale),
+        width=int((rx - lx) / scale),
+        height=int((by - ty) / scale),
+    )
+
+
+def calibrate() -> Calibration:
+    with mss.mss() as sct:
+        img, mon = grab_full_screen(sct)
+
+    h, w = img.shape[:2]
+    scale = min(1.0, 1500.0 / w, 820.0 / h)
+    display = cv2.resize(img, None, fx=scale, fy=scale) if scale < 1.0 else img.copy()
+
+    g = _select_box(display, scale, title="ground", allow_skip=False)
+    if g is None or g.width < 8 or g.height < 4:
+        sys.exit(1)
+
+    def shift(b: Box) -> Box:
+        return Box(b.left + mon["left"], b.top + mon["top"], b.width, b.height)
+
+    return Calibration(ground=shift(g), monitor=mon)
+
+
+def obstacle_strength(bgra: np.ndarray) -> float:
+    gray = cv2.cvtColor(bgra, cv2.COLOR_BGRA2GRAY)
+    return float(gray.std())
+
+
+def run(calib: Calibration, debug: bool = False,
+        ground_thresh: float = 3.0) -> None:
+    time.sleep(4)
+
+    JUMP_COOLDOWN = 0.05
+
+    last_jump = 0.0
+    start_t = time.time()
+
+    with mss.mss() as sct:
         try:
             while True:
-                img = self.capture()
-                obstacle_pct = self.process(img)
-                
-                if 3 < obstacle_pct < 30 and time.time() - self.last_jump > 0.15:
-                    pyautogui.press('space')
-                    self.last_jump = time.time()
-                
-                score += 1
-                
-                # Game over detection
-                if obstacle_pct > 40:
-                    print(f"Score: ~{score}, restarting...")
-                    time.sleep(0.5)
-                    pyautogui.press('space')
-                    score = 0
-                
-                if score % 500 == 0:
-                    print(f"Score: {score}")
-                
-                time.sleep(0.005)
-                
+                now = time.time()
+                elapsed = now - start_t
+
+                extra_px = int(min(160, elapsed * 2.4))
+                ground = calib.ground.expand_right(extra_px)
+
+                ground_img = np.array(sct.grab(ground.to_mss()))
+                ground_s = obstacle_strength(ground_img)
+                ground_hit = ground_s > ground_thresh
+
+                if ground_hit and (now - last_jump) > JUMP_COOLDOWN:
+                    pyautogui.keyDown("space")
+                    time.sleep(0.10)
+                    pyautogui.keyUp("space")
+                    last_jump = now
+
+                if debug:
+                    panel_box = {"left": ground.left - 40,
+                                 "top": ground.top - 60,
+                                 "width": ground.width + 80,
+                                 "height": ground.height + 90}
+                    panel = np.array(sct.grab(panel_box))
+                    panel = cv2.cvtColor(panel, cv2.COLOR_BGRA2BGR)
+
+                    x = ground.left - panel_box["left"]
+                    y = ground.top - panel_box["top"]
+                    color = (0, 0, 255) if ground_hit else (0, 200, 0)
+                    cv2.rectangle(panel, (x, y),
+                                  (x + ground.width, y + ground.height), color, 2)
+                    cv2.putText(panel, f"std:{ground_s:.1f}",
+                                (x, max(12, y - 4)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+
+                    cv2.imshow("debug", panel)
+                    if (cv2.waitKey(1) & 0xFF) == ord("q"):
+                        break
+                else:
+                    time.sleep(0.003)
         except KeyboardInterrupt:
-            print(f"\nFinal score: ~{score}")
+            pass
+        finally:
+            cv2.destroyAllWindows()
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--debug", action="store_true")
+    p.add_argument("--ground-thresh", type=float, default=9.0)
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    calib = calibrate()
+    run(calib, debug=args.debug, ground_thresh=args.ground_thresh)
+
 
 if __name__ == "__main__":
-    DinoBot().run()
+    main()
