@@ -13,6 +13,8 @@ BALL_RADIUS = 25
 RESTITUTION = 0.35
 ROLLING_FRICTION = 0.96
 AIR_FRICTION = 0.9995
+CONTOUR_MIN_LENGTH = 60   # px — shorter contours are noise
+CONTOUR_EPSILON = 4.0     # approxPolyDP accuracy (smaller = more segments, closer to curve)
 
 
 @dataclass
@@ -31,17 +33,39 @@ class Ball:
         self.active = False
 
 
-def detect_platforms(frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def detect_platforms(
+    frame: np.ndarray,
+    roi: Optional[Tuple[int, int, int, int]] = None,
+) -> List[Tuple[int, int, int, int]]:
+    if roi is not None and roi[2] > 0 and roi[3] > 0:
+        rx, ry, rw, rh = roi
+        crop = frame[ry:ry + rh, rx:rx + rw]
+    else:
+        crop = frame
+        rx, ry = 0, 0
+
+    # Mask out green platform lines and ball so they aren't re-detected
+    hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+    green_mask = cv2.inRange(hsv, (35, 80, 80), (85, 255, 255))
+    exclude = cv2.dilate(green_mask, np.ones((9, 9), np.uint8))
+
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    blur[exclude > 0] = 0
     edges = cv2.Canny(blur, 40, 120)
-    lines = cv2.HoughLinesP(
-        edges, 1, np.pi / 180,
-        threshold=55, minLineLength=60, maxLineGap=20,
-    )
-    if lines is None:
-        return []
-    return [tuple(ln[0]) for ln in lines]
+
+    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    segments = []
+    for cnt in contours:
+        if cv2.arcLength(cnt, False) < CONTOUR_MIN_LENGTH:
+            continue
+        approx = cv2.approxPolyDP(cnt, CONTOUR_EPSILON, False)
+        pts = approx.reshape(-1, 2)
+        for i in range(len(pts) - 1):
+            x1, y1 = pts[i]
+            x2, y2 = pts[i + 1]
+            segments.append((int(x1 + rx), int(y1 + ry), int(x2 + rx), int(y2 + ry)))
+    return segments
 
 
 def _resolve_collision(
@@ -138,12 +162,18 @@ def render(
     ball: Ball,
     platforms: List[Tuple[int, int, int, int]],
     show_platforms: bool,
+    roi: Optional[Tuple[int, int, int, int]] = None,
+    show_roi: bool = True,
 ) -> np.ndarray:
     out = background.copy()
 
     if show_platforms:
         for x1, y1, x2, y2 in platforms:
             cv2.line(out, (x1, y1), (x2, y2), (50, 220, 50), 3, cv2.LINE_AA)
+
+    if show_roi and roi is not None and roi[2] > 0 and roi[3] > 0:
+        rx, ry, rw, rh = roi
+        cv2.rectangle(out, (rx, ry), (rx + rw, ry + rh), (0, 200, 255), 2, cv2.LINE_AA)
 
     _draw_ball(out, int(ball.x), int(ball.y))
 
@@ -190,11 +220,13 @@ def main() -> None:
             cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
         show_platforms = not args.no_platforms
-        background = np.full_like(static_frame, 255) if args.no_camera else static_frame
+        background = np.zeros_like(static_frame) if args.no_camera else static_frame
+        roi: Optional[Tuple[int, int, int, int]] = None
+        platforms = detect_platforms(static_frame, roi)
 
         while True:
             update_ball(ball, platforms, w, h)
-            output = render(background, ball, platforms, show_platforms)
+            output = render(background, ball, platforms, show_platforms, roi, not args.no_camera)
             cv2.imshow(win, output)
             key = cv2.waitKey(16) & 0xFF  # ~60 fps
 
@@ -205,6 +237,10 @@ def main() -> None:
                 ball.active = True
             elif key == ord("p"):
                 show_platforms = not show_platforms
+            elif key == ord("r"):
+                result = cv2.selectROI(win, static_frame, showCrosshair=False)
+                roi = result if result[2] > 0 and result[3] > 0 else None
+                platforms = detect_platforms(static_frame, roi)
 
         cv2.destroyAllWindows()
         return
@@ -231,17 +267,18 @@ def main() -> None:
         cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     show_platforms = not args.no_platforms
+    roi: Optional[Tuple[int, int, int, int]] = None
+    platforms = detect_platforms(frame, roi)  # detect once on clean frame
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        platforms = detect_platforms(frame)
         update_ball(ball, platforms, w, h)
 
-        background = np.full_like(frame, 255) if args.no_camera else frame
-        output = render(background, ball, platforms, show_platforms)
+        background = np.zeros_like(frame) if args.no_camera else frame
+        output = render(background, ball, platforms, show_platforms, roi, not args.no_camera)
 
         cv2.imshow(win, output)
         key = cv2.waitKey(1) & 0xFF
@@ -255,6 +292,12 @@ def main() -> None:
             show_platforms = not show_platforms
         elif key == ord("c"):
             args.no_camera = not args.no_camera
+        elif key == ord("d"):  # re-detect platforms on current frame
+            platforms = detect_platforms(frame, roi)
+        elif key == ord("r"):
+            result = cv2.selectROI(win, frame, showCrosshair=False)
+            roi = result if result[2] > 0 and result[3] > 0 else None
+            platforms = detect_platforms(frame, roi)
 
     cap.release()
     cv2.destroyAllWindows()
