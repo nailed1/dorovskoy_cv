@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+#claude --resume b3ac4d5c-76df-4ee0-ac40-1db6041bdfe7
 import argparse
 import math
 from dataclasses import dataclass
@@ -162,6 +162,7 @@ def render(
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Falling ball projector demo")
+    p.add_argument("--image", type=str, default=None, help="Static image instead of camera")
     p.add_argument("--camera", type=int, default=0, help="Camera index (default 0)")
     p.add_argument("--fullscreen", action="store_true", help="Fullscreen window (for projector)")
     p.add_argument("--no-camera", action="store_true", help="Black background (don't show camera feed)")
@@ -172,6 +173,43 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    # --- image mode ---
+    if args.image is not None:
+        static_frame = cv2.imread(args.image)
+        if static_frame is None:
+            print(f"Error: cannot load image {args.image}")
+            return
+        h, w = static_frame.shape[:2]
+        start_x, start_y = w // 2, BALL_RADIUS + 10
+        ball = Ball(x=start_x, y=start_y)
+        platforms = detect_platforms(static_frame)
+
+        win = "Falling Ball"
+        cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+        if args.fullscreen:
+            cv2.setWindowProperty(win, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+
+        show_platforms = not args.no_platforms
+        background = np.full_like(static_frame, 255) if args.no_camera else static_frame
+
+        while True:
+            update_ball(ball, platforms, w, h)
+            output = render(background, ball, platforms, show_platforms)
+            cv2.imshow(win, output)
+            key = cv2.waitKey(16) & 0xFF  # ~60 fps
+
+            if key == 27:
+                break
+            elif key == ord(" "):
+                ball.reset(start_x, start_y)
+                ball.active = True
+            elif key == ord("p"):
+                show_platforms = not show_platforms
+
+        cv2.destroyAllWindows()
+        return
+
+    # --- camera mode ---
     cap = cv2.VideoCapture(args.camera)
     if not cap.isOpened():
         print(f"Error: cannot open camera {args.camera}")
@@ -202,20 +240,20 @@ def main() -> None:
         platforms = detect_platforms(frame)
         update_ball(ball, platforms, w, h)
 
-        background = np.zeros_like(frame) if args.no_camera else frame
+        background = np.full_like(frame, 255) if args.no_camera else frame
         output = render(background, ball, platforms, show_platforms)
 
         cv2.imshow(win, output)
         key = cv2.waitKey(1) & 0xFF
 
-        if key == 27:           # ESC — quit
+        if key == 27:
             break
-        elif key == ord(" "):   # SPACE — start / reset
+        elif key == ord(" "):
             ball.reset(start_x, start_y)
             ball.active = True
-        elif key == ord("p"):   # P — toggle platform overlay
+        elif key == ord("p"):
             show_platforms = not show_platforms
-        elif key == ord("c"):   # C — toggle camera background (runtime)
+        elif key == ord("c"):
             args.no_camera = not args.no_camera
 
     cap.release()
