@@ -4,7 +4,11 @@ from skimage.measure import label,regionprops
 from skimage.io import imread
 from skimage.color import rgb2hsv
 
-image = imread("balls_and_rects.png")
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+image = imread(str(BASE / "balls_and_rects.png"))
 hsv = rgb2hsv(image)
 h = hsv[:,:,0]
 

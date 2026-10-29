@@ -2,10 +2,14 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-cat = cv2.imread("cat/cat.png")
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+cat = cv2.imread(str(BASE.parent / "cat" / "cat.png"))
 
 cat1 = cv2.cvtColor(cat, cv2.COLOR_BGR2GRAY)
-cat2 = cv2.imread("cat/cat2.png", cv2.IMREAD_GRAYSCALE)
+cat2 = cv2.imread(str(BASE.parent / "cat" / "cat2.png"), cv2.IMREAD_GRAYSCALE)
 
 diff = cv2.absdiff(cat1, cat2)
 _, mask = cv2.threshold(diff, 25, 255, cv2. THRESH_BINARY)

@@ -68,7 +68,7 @@ def count_holes(region):
 
 save_path = Path(__file__).parent
 
-image = imread("alphabet/symbols.png")[:, :, :-1]
+image = imread(str(save_path.parent / "alphabet" / "symbols.png"))[:, :, :-1]
 binary_alphabet = image.mean(2) > 0
 labeled_alphabet = label(binary_alphabet)
 print(np.max(labeled_alphabet))

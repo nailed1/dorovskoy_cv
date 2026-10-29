@@ -59,7 +59,7 @@ plt.show()
 # print(mean_spatial_frequency(r))
 # print(mean_spatial_frequency(f))
 
-path = Path("/Users/nailed1/Documents/GitHub/dorovskoy_cv/ana_images")
+path = Path(__file__).resolve().parent.parent / "ana_images"
 for file in path.glob("*.jpg"):
     image = imread(file, as_gray=True)
     print(file.stem, round(median_brightness(image), 3), round(mean_spatial_frequency(image), 3))

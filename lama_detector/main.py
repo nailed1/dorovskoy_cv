@@ -6,9 +6,13 @@ from skimage.filters import sobel
 from skimage.morphology import binary_closing
 import sys
 
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
 sys.setrecursionlimit(1500000)
 
-image = imread("./lama_on_moon.png")[32:-50, 40:-20, :-1]
+image = imread(str(BASE / "lama_on_moon.png"))[32:-50, 40:-20, :-1]
 
 print(image.shape)
 

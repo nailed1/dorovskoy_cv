@@ -1,7 +1,11 @@
 import cv2
 
-mush = cv2.imread("opencv_11_04/mushroom.jpg", cv2.IMREAD_UNCHANGED)
-logo = cv2.imread("opencv_11_04/cvlogo.png", cv2.IMREAD_UNCHANGED)[:, :, :-1]
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+mush = cv2.imread(str(BASE.parent / "opencv_11_04" / "mushroom.jpg"), cv2.IMREAD_UNCHANGED)
+logo = cv2.imread(str(BASE.parent / "opencv_11_04" / "cvlogo.png"), cv2.IMREAD_UNCHANGED)[:, :, :-1]
 
 logo = cv2.resize(logo, (logo.shape[1]//2, logo.shape[0]//2))
 

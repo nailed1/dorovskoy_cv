@@ -2,9 +2,13 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-tv = cv2.imread("kak_nibud/news.jpg")
+from pathlib import Path
 
-chebu = cv2.imread("kak_nibud/cheburashka.jpg", cv2.IMREAD_COLOR_RGB)
+BASE = Path(__file__).resolve().parent
+
+tv = cv2.imread(str(BASE.parent / "kak_nibud" / "news.jpg"))
+
+chebu = cv2.imread(str(BASE.parent / "kak_nibud" / "cheburashka.jpg"), cv2.IMREAD_COLOR_RGB)
 
 rows, cols, _ = chebu.shape
 pts1 = np.array([[0,0],[cols, 0],[cols,rows],[0,rows]], dtype="f4")

@@ -2,7 +2,11 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-image = cv2.imread("opencv_11_04/rose.jpg")
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+image = cv2.imread(str(BASE.parent / "opencv_11_04" / "rose.jpg"))
 hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
 lower = np.array([0, 200, 100])

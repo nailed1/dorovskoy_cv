@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
 
-image = cv2.imread("aud_25_04/contours/cubes_1.png")
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+image = cv2.imread(str(BASE / "contours" / "cubes_1.png"))
 
 hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 

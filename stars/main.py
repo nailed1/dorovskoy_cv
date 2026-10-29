@@ -2,7 +2,11 @@ import numpy as np
 from skimage.measure import label
 from skimage.morphology import opening
 
-image=np.load("stars.npy")
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+image=np.load(BASE / "stars.npy")
 
 christ = np.array([
     [0, 0, 1, 0, 0],

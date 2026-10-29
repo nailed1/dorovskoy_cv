@@ -5,7 +5,11 @@ from skimage.color import rgb2hsv
 from skimage.measure import label, regionprops
 from skimage.morphology import erosion
 
-image = imread("balls/balls.png")
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
+image = imread(str(BASE.parent / "balls" / "balls.png"))
 hsv = rgb2hsv(image)
 hue = hsv[:, :, 0]
 

@@ -1,3 +1,16 @@
-venv/
+# окружения
 .venv/
-alphabet/out_tree
+venv/
+__pycache__/
+*.py[cod]
+
+# служебные файлы ОС и редакторов
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# результаты работы скриптов
+out/
+out_tree/
+*.log

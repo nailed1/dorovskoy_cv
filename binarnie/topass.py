@@ -1,6 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
 def neighbours2(y ,x):
     return (y-1,x), (y, x-1)
 
@@ -68,6 +72,6 @@ def label(binary):
     print(links[:10])
     return labeled
 
-image = np.load("/Users/nailed1/Documents/GitHub/dorovskoy_cv/binarnie/mark.npy")
+image = np.load(BASE / "mark.npy")
 plt.imshow(label(image))
 plt.show()

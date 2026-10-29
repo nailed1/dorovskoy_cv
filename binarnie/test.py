@@ -28,7 +28,7 @@ def count_objects(binary: np.ndarray) -> float:
                         external += 2
     return (external - internal)/4
 
-path = Path("/Users/nailed1/Documents/GitHub/dorovskoy_cv/npy-images")
+path = Path(__file__).resolve().parent.parent / "npy-images"
 
 def neighbours(y, x):
     return((y, x-1), (y, x+1), (y-1, x), (y+1, x))

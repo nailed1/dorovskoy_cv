@@ -1,8 +1,13 @@
 import cv2
 import numpy as np
+
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+
 cv2.namedWindow("Image", cv2.WINDOW_GUI_NORMAL)
 
-image = cv2.imread("trajectory/contours/arrow.png")
+image = cv2.imread(str(BASE / "contours" / "arrow.png"))
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 _, mask = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
 
